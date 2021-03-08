@@ -4,7 +4,7 @@ import pandas as pd
 import math
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pat
 plt.style.use('fivethirtyeight')
 
 from loadingData import loadData
