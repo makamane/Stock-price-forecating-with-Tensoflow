@@ -6,16 +6,15 @@ from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 15, 6
 import os
 
-# from datetime import datetime
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
-# from statsmodels.tsa.arima_model import ARIMA
+from statsmodels.tsa.arima.model import ARIMA
+
 from statsmodels.tsa.stattools import acf, pacf 
 
 import pmdarima as pm
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import r2_score
 import pickle
 from sklearn.metrics import mean_absolute_error
@@ -23,6 +22,7 @@ from sklearn.metrics import mean_absolute_error
 
 
 def model_test(expected, predicted):
+    
     y_pred = []
     y_true = []
     forecast_errors = []
@@ -49,6 +49,16 @@ def model_test(expected, predicted):
     # Root Mean Squared Error
     rmse = np.sqrt(mse)
     print('RMSE:',rmse)
+    
+def get_first_item(list_var):
+    try:
+        list_var = list_var[0][0]
+    except Exception as err:
+        if str(err)[:32] == 'invalid index to scalar variable':
+            list_var = list_var[0]
+        else:
+            raise Exception(err)
+    return list_var
     
 class TimeSeries_analysis:
     def __init__(self, data, index_tearget, target_values, window):
@@ -88,10 +98,10 @@ class TimeSeries_analysis:
         pdq = prms.split(';')[0]
         PDQ = prms.split(';')[1]  
         
-        p,d,q = int(pdq[1]), int(pdq[3]), int(pdq[5])
-        P,D,Q= int(PDQ[0]), int(PDQ[2]), int(PDQ[4])
+        self.p,self.d,self.q = int(pdq[1]), int(pdq[3]), int(pdq[5])
+        self.P,self.D,self.Q= int(PDQ[0]), int(PDQ[2]), int(PDQ[4])
 
-        return (p,d,q, P,D,Q)
+        return (self.p, self.d, self.q, self.P, self.D, self.Q)
             
     def data_plt(self, show_ts=False):
         print('Is it clear from the plot that there is an overall increase in the trend and with some seasonality in it?')
@@ -223,7 +233,7 @@ class TimeSeries_analysis:
             plt.legend(loc='best')
             plt.tight_layout()
         
-        ts_log_decompose = residual
+        ts_log_decompose = self.ts_log - self.ts_log.shift()
         self.ts_log_diff = ts_log_decompose.dropna()
         return self.ts_log_diff
     
@@ -262,12 +272,14 @@ class TimeSeries_analysis:
             pass
             
     def split_data(self):
-        X = self.data
+        X = self.ts
         self.train_size = int(len(X)*.80)
         self.test_size = int(len(X) - self.train_size)
         self.train_data, self.test_data = X[0:self.train_size], X[self.train_size:len(X)]
+        
         self.history = [x for x in self.train_data]
         self.predictions = list()
+        
         print('Data Splited:')
         print(' Train size:', self.train_size)
         print(' Test size:', self.test_size)
@@ -276,59 +288,60 @@ class TimeSeries_analysis:
             
     def fit(self, p,d,q,P,D,Q, evaluate=False):
         # walk-forward validation
-        model = SARIMAX(self.train_data.values, order=(p,d,q),seasonal_order=(P,D,Q,self.window), 
-                        enforce_stationarity=False,
-                        enforce_invertibility=False)
-        self.results = model.fit()
-        self.results.summary().tables[1]
+        self.model = ARIMA(self.history, order=(p,d,q))
+        self.model_fit = self.model.fit()
         
         if evaluate:
-            self.results.plot_diagnostics()
-            plt.show()
-            print('If ok then: ')
-            print('''
-            The top-left plot should shows the residuals over 
-                time and it appears to be a white noise with no seasonal component.
-            The top-right plot should shows that kde line (in red) closely follows the N(0,1)
-                line, which is the standard notation of normal distribution with zero 
-                mean and standard deviation of 1, suggesting the residuals are normally distributed.
-            The bottom-left normal QQ-plot should shows ordered distribution of residuals 
-                (in blue) closely follow the linear trend of the samples taken from
-                a standard normal distribution, suggesting residuals are normally distributed.
-            The bottom-right is a correlogram plot should indicating residuals have a low correlation with lagged versions.
-            ''')
+            
+            predictions = list()
+            history = self.history
+            for t in range(len(self.test_data)):
+                model = ARIMA(history, order=(p,d,q))
+                model_fit = model.fit()
+                output = model_fit.forecast()
+                yhat = get_first_item(output)
+                predictions.append(yhat)
+                obs = self.test_data[t]
+                history.append(obs)
+            
+            print('Model evaluation...')
+            r2=r2_score(self.test_data, predictions)
+            # MAPE
+            mean_absolute_percentage_error = np.mean(np.abs(predictions - self.test_data)/np.abs(self.test_data))*100
+            print('Forecast is off by {0}% and {1}% accurate'.format(
+                np.round(mean_absolute_percentage_error,2), np.round(r2*100, 2)))
+        
+            print('--------Evaluation ended---------')
+        
             
     def test_data_focast_evaluation(self):
-        forecast_object = self.results.get_forecast(steps=len(self.test_data))
-        mean = forecast_object.predicted_mean
-        # conf_int = forecast_object.conf_int()
-        # dates = mean.index
-        plt.plot(mean, label='Predicted')
-        plt.plot(self.test_data, color='red', label='Observed')
+        predictions = list()
+        history = self.history
+        for t in range(len(self.test_data)):
+            model = ARIMA(history, order=(self.p, self.d, self.q))
+            model_fit = model.fit()
+            output = model_fit.forecast()
+            yhat = get_first_item(output)
+            predictions.append(yhat)
+            obs = self.test_data[t]
+            history.append(obs)
+                
+        plt.plot(self.test_data.index, predictions, label='Predicted')
+        plt.plot(self.test_data.index, self.test_data, color='red', label='Observed')
         plt.legend()
-            
-            
-    # def ARIMA_predict(self, p,d,q,data, show_predictions=False):
-    #     predictions = list()
-    #     for t in range(len(data)):
-    #         output = self.model_fit.forecast()
-    #         yhat = output[0]
-    #         predictions.append(yhat)
-          
-        
-    #         if show_predictions:
-    #             obs = self.test[t]
-    #             print('predicted=%f, expected=%f' % (yhat, obs))
-        
-    #         self.history.append(obs)
-    #         self.model = ARIMA(self.history, order=(p,d,q))
-    #         self.model_fit = self.model.fit()
-            
-    #     return predictions
     
     def model_evaluation(self):
-        predictions = self.results.get_forecast(steps=len(self.test_data))
-        predictions = predictions.predicted_mean
+        predictions = list()
+        for t in range(len(self.test_data)):
+            self.model = ARIMA(self.history, order=(self.p, self.d, self.q))
+            self.model_fit = self.model.fit()
+            output = self.model_fit.forecast()
+            yhat = get_first_item(output)
+            predictions.append(yhat)
+            obs = self.test_data[t]
+            self.history.append(obs)
+            print('predicted=%f, Observed=%f' % (yhat, obs))
+            
         # r2
         r2=r2_score(self.test_data, predictions)
         # MAPE
@@ -340,15 +353,31 @@ class TimeSeries_analysis:
     
     
     def forecast(self, steps=1, show_plt=False):
-        forecast_object = self.results.get_forecast(steps=len(self.test_data))
-        mean = forecast_object.predicted_mean
-        # conf_int = forecast_object.conf_int()
-        # dates = mean.index
+        
+        predictions = list()
+        for t in range(self.test_size):
+            if t>=1:
+                self.model = ARIMA(self.history, order=(self.p, self.d, self.q))
+                self.model_fit = self.model.fit()
+                output = self.model_fit.forecast()
+                yhat = get_first_item(output)
+                predictions.append(yhat)
+                obs = self.test_data[t]
+                self.history.append(obs)
+
+                
+            else:
+                output = self.model_fit.forecast()
+                yhat = get_first_item(output)
+                predictions.append(yhat)
+                obs = self.test_data[t]
+                self.history.append(obs)
+                
         if show_plt:
-            plt.plot(self.test_data.index, mean, label='Forecast')
+            plt.plot(self.test_data.index, predictions, label='Forecast')
             plt.plot(self.test_data, color='red', label='Actual')
             plt.legend()
-        return mean
+        return predictions
     
     def save(self, new_model_path):
         # saving the label_ids in to pickle
@@ -358,7 +387,7 @@ class TimeSeries_analysis:
             os.makedirs(new_model_path)
             
         with  open(file, 'wb') as f:
-            pickle.dump(self.results, f)
+            pickle.dump(self.model_fit, f)
             
     def load_model(self, model_path, show_r2=False):
         # saving the label_ids in to pickle

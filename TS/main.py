@@ -7,9 +7,9 @@ from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 15, 6
 
 # Load data
-LOADED_DATA = pd.read_csv('testdata.csv')
+LOADED_DATA = pd.read_csv('reg_fin_df.csv')
 # convet data to ts data
-TIME_SERIES = TimeSeries_analysis(data=LOADED_DATA, index_tearget='Month', target_values='#Passengers', window=12)
+TIME_SERIES = TimeSeries_analysis(data=LOADED_DATA, index_tearget='Month', target_values='OdoReading', window=12)
     
 class ForcastModel:
     def __init__(self, window, Vehicle_registration):
@@ -74,7 +74,18 @@ class ForcastModel:
     def load_model(self):
          return TIME_SERIES.load_model(self.new_model_path, show_r2=False)
 
-   
+# def ARIMA_focast(model):
+#     model
+#     self.model_fit = self.model.fit()
+#     output = self.model_fit.forecast()
+#     yhat = output[0][0]
+#     predictions.append(yhat)
+#     obs = self.test_data[t]
+#     self.history.append(obs)
+    
+    
+    
+    # return predictions
 def main(registration, period=12):
     # Loading model class
     mode_class = ForcastModel(window=period, Vehicle_registration=registration)
@@ -87,6 +98,7 @@ def main(registration, period=12):
     
     #model forecast
     predicted = mode_class.forecast()
+    predicted = [int(x) for x in predicted]
     print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
     print(predicted)
     print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@----')
@@ -97,11 +109,16 @@ def main(registration, period=12):
     # Load model
     model = mode_class.load_model()
     
-    forecast_object = model.get_forecast(steps=period)
-    mean = forecast_object.predicted_mean
-    print('//////////////////')
-    print(mean)
-    print('----------')
+    # ARIMA_focast(model)
+    
+    # forecast_object = model.get_forecast(steps=period)
+    # mean = forecast_object.predicted_mean
+    # mean = [int(x) for x in mean]
+    # print('//////////////////')
+    # print(mean)
+    # print('------------------')
+    
+
        
     # # print('-------------------------')
     # ts_log_diff = TIME_SERIES.seasonality_along_with_trend(show_plt=False)
