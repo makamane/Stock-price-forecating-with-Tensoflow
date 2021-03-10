@@ -17,7 +17,7 @@ from statsmodels.tsa.stattools import acf, pacf
 import pmdarima as pm
 from sklearn.metrics import r2_score
 import pickle
-from sklearn.metrics import mean_absolute_error
+from sklearn import metrics
 
 
 
@@ -37,13 +37,12 @@ def model_test(expected, predicted):
     
     # Zero indicate no error
     # Mean Absolute Error
-    MAE = mean_absolute_error(expected, predicted)
+    MAE = metrics.mean_absolute_error(expected, predicted)
     print('MAE:', MAE)
     
     # Mean Squared Error
-    from sklearn.metrics import mean_squared_error
     # forecast_errors_sqr = [val**2 for val in forecast_errors]
-    mse = mean_squared_error(expected, predicted)
+    mse = metrics.mean_squared_error(expected, predicted)
     print('MSE:', mse)
     
     # Root Mean Squared Error

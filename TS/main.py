@@ -118,45 +118,6 @@ def main(registration, period=12):
     # print(mean)
     # print('------------------')
     
-
-       
-    # # print('-------------------------')
-    # ts_log_diff = TIME_SERIES.seasonality_along_with_trend(show_plt=False)
-    # print('ts_log_diff....', ts_log_diff)
-    # if ts_log_diff is not None:
-    #     print('Stationarity test...')
-    #     TIME_SERIES.stationarity_testing(show_p_value=True, show_rolmean_rolstd=True, data=ts_log_diff)
-    # else:
-    #     raise Exception('ts_log_diff empty')
-        
-    # Trend, seasonality and residual plot
-    # ts_log_decompose = TIME_SERIES.seasonality_trend_residual_plot(show_plt=False)
-        
-    # if ts_log_diff is not None:
-    #     print('Stationarity test...')
-    #     TIME_SERIES.stationarity_testing(show_p_value=True, show_rolmean_rolstd=True, data=ts_log_decompose)
-    # else:
-    #     raise Exception('ts_log_decompose empty')
-    # print('-------------------------')
-    
-    # # ACF: Checks for correlation with the previous observations
-    # # PACF: Checks for correlation with the residuals
-    
-    # print('-------------------------info_')
-    # p,d,q, P,D,Q = TIME_SERIES.params_estimation()
-    # print('-------------------------***')
-
-    # #Auto regresion plots
-    # TIME_SERIES.Auto_corr_and_Partial_Auto_corr(show_plt=True)
-    # ARIMA model fit
-    # time_series.ARIMA_parms(data=ts_log_decompose, p=p,d=d,q=q)
-    # time_series.ARIMA_fit(show_predictions=True, p=p,d=d,q=q)
-    
-    # time_series.ARIMA_predict(data=ts_log_decompose[])
-    
-    
-    # time_series.forecast(steps=1, show_plt=True)
-    
     
 if __name__ == "__main__":
     while True:
