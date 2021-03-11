@@ -1,4 +1,4 @@
 *.csv
 *.DS_Store
 trained_models/*
-*/trained_models/*
+trained_models/*.sav
