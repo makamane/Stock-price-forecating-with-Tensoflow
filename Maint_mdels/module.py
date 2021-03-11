@@ -2,6 +2,10 @@ import sklearn, warnings
 import pandas as pd
 import numpy as np
 import os, pickle
+from sklearn import preprocessing, tree
+from sklearn import model_selection
+
+fit_count = 0
 
 def generate_data(mak, make):
     data = pd.DataFrame({'Make':[], 'Reading':[], 'Target':[]}) 
@@ -78,7 +82,7 @@ class Classification:
         
     def encoder(self):
         print('Encoding make...')
-        self.LabelEncoder = sklearn.preprocessing.LabelEncoder()
+        self.LabelEncoder = preprocessing.LabelEncoder()
         self.LabelEncoder.fit(self.data['Make'])
         self.LabelEncoder.classes_
         # le.transform(data['Make'])
@@ -91,9 +95,9 @@ class Classification:
         self.y = np.array(self.data[['Target']])
         
         # K-fold split
-        kf = sklearn.model_selection.KFold(n_splits=self.make_obt[self.v_make], shuffle=False)
+        kf = model_selection.KFold(n_splits=int(self.make_obt[self.v_make]), shuffle=False)
         kf.get_n_splits(self.X)
-        print(kf)
+        # print(kf)
         for train_index, test_index in kf.split(self.X):
         #     print("TRAIN:", train_index, "TEST:", test_index)
             self.X_train, self.X_test = self.X[train_index], self.X[test_index]
@@ -101,59 +105,64 @@ class Classification:
                 
     def fit(self):
         print('Fitting data...')
-        self.model = sklearn.tree.DecisionTreeClassifier()
+        self.model = tree.DecisionTreeClassifier()
         self.model = self.model.fit(self.X_train, self.y_train)
         print('pre-evaluateing...')
         y_pred = self.model.predict(self.X_test)
         acc = sklearn.metrics.accuracy_score(self.y_test, y_pred)
         print('Accuracy:', acc)
         print('------------------------')
-        if acc < 90:
-            print('------------------------>>>>')
-            # for pred, act, tt in zip(y_pred, self.y_test, self.X_test):
-            #     print(tt[1], '--> predicted: {0}| Actual: {1}'.format(pred, act[0]))
+        # if acc < 90:
+        #     print('------------------------>>>>')
+        #     # for pred, act, tt in zip(y_pred, self.y_test, self.X_test):
+        #     #     print(tt[1], '--> predicted: {0}| Actual: {1}'.format(pred, act[0]))
             
             
-            print('------------------------>>>>')
+        #     print('------------------------>>>>')
         
         
         
-    def evaluate(self, show_obs=False):
+    def evaluate(self, show_obs=False, show_warning=True):
         print('Model evaluation...')
         # np.unique(le.classes_)
-        predicted = []
-        actual = []
-        for km in self.make_obt:
-            print('       ',km, ' | ',  self.make_obt[km])
+        self.predicted = []
+        self.actual = []
+        for mk in self.make_obt:
+            print('       ',mk, ' | ',  self.make_obt[mk])
             print('-------------------')
-            target = self.make_obt[km]
-            brend_code = self.LabelEncoder.transform([km])[0]
+            target = self.make_obt[mk]
+            brend_code = self.LabelEncoder.transform([mk])[0]
             for km in range(1000):
                 res = self.model.predict([[brend_code, km]])[0]
-                predicted.append(res)
+                self.predicted.append(res)
                 if km % target == 0:
                     if km > 0:
-                        actual.append(0)
+                        self.actual.append(1)
                         if show_obs:
-                            print(km, 'predicted: {0}| Actual: {1}'.format(res, 1))
+                            print(km, 'Predicted: {0}| Actual: {1}'.format(res, 1))
                         
                     else:
-                        actual.append(1)
+                        self.actual.append(0)
                         if show_obs:
-                            print(km, 'predicted: {0}| Actual: {1}'.format(res, 0))
+                            print(km, 'Predicted: {0}| Actual: {1}'.format(res, 0))
                 else:
-        #             predicted.append(res)
-                    actual.append(0)
+                    self.actual.append(0)
                     if show_obs:
-                        print(km,'predicted: {0}| Actual: {1}'.format(res, 0))
-                
-        self.score = sklearn.metrics.accuracy_score(actual, predicted)
-        print("Accuracy based on 1k events: {0}".format(self.score))
-        if self.score < 0.85:
-            warnings.warn('Accuracy score of {0}'.format(self.score))
+                        print(km,'Predicted: {0}| Actual: {1}'.format(res, 0))
+                        
+        if self.v_make in ['BIG BOY']:
+            self.score = sklearn.metrics.accuracy_score(self.actual, self.predicted)
+        else:
+            self.score = sklearn.metrics.accuracy_score(self.actual, self.predicted)
+            
+        print("Accuracy based on 1k events: {0}%".format(np.round(self.score*100, 2)))
+        if (self.score < 0.83)and(show_warning):
+            warnings.warn('Accuracy score of {0}%'.format(np.round(self.score*100, 2)))
         
     def save(self):
-        if self.score > 0.88:
+        global fit_count
+        
+        if self.score >= 0.83:
             print('Saving fitted model...', end="\r")
             # saving the label_ids in to pickle
             file = self.new_model_path+'/'+'trainner.sav'
@@ -165,12 +174,22 @@ class Classification:
                 pickle.dump(self.model, f)
             print('Saved fitted model...', end="\r")
         else:
+  
+            while self.score < 0.83:
+                Classification.split(self)
+                Classification.fit(self)
+                Classification.evaluate(self, show_warning=False)
+                fit_count +=1
+                if fit_count>200:
+                    break
+            if (self.score < 0.83) and (fit_count<=200):
+                Classification.save(self)
             print('!!!!!!!!!!!!!!!!!!!!!')
-            warnings.warn('Saving faild due to low accuracy')
+            warnings.warn('Saving failed due to low accuracy')
             
     def load_model(self, model_path, show_accuacy=False):
         # saving the label_ids in to pickle
-        file = model_path+'/'+'trainner.sav'
+        file = str(model_path)+'/'+'trainner.sav'
         # with  open(file, 'rb') as f:
         loaded_model = pickle.load(open(file, 'rb'))
             
