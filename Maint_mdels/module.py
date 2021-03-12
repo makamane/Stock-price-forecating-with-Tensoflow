@@ -7,7 +7,7 @@ from sklearn import model_selection
 
 fit_count = 0
 
-def generate_data(mak, make):
+def generate_distance_data(mak, make):
     data = pd.DataFrame({'Make':[], 'Reading':[], 'Target':[]}) 
     
     ybelow, yequal, yabove = [], [], []
@@ -69,14 +69,60 @@ def generate_data(mak, make):
     df = pd.DataFrame({'Make': mmke, 'Reading':X, 'Target': y})
 
     return data.append(df)
+
+def generate_duration_data(mak, make_duration_object):
+    data = pd.DataFrame({'Make':[], 'Months':[], 'Target':[]}) 
+    ybelow, yabove = [], []
+    xbelow, xabove = [], []
+
+    X,y = [],[]
+    mmke = []
+    
+    for km in range(0, 200):
+        if km >= make_duration_object[mak]:
+            xabove.append(km)
+            yabove.append(1)       
+        else:
+            xbelow.append(km)
+            ybelow.append(0)
+
+                    
+    for x in xbelow:
+        X.append(x )
+    for x in xabove:
+        X.append(x)
+
+    for x in ybelow:
+        y.append(x)
+    for x in yabove:
+        y.append(x)
+
+    for x in range(len(y)):
+        mmke.append(mak)
+        
+    print('X:',len(X))
+    print('y:',len(y))
+    print('mmke:',len(mmke))
+
+    df = pd.DataFrame({'Make': mmke, 'Months':X, 'Target': y})
+
+    return data.append(df)
+   
     
 class Classification:
-    def __init__(self, make_obt, v_make):
+    def __init__(self, make_obt, v_make, train_model_name):
         print('geneating data....')
+        self.train_model_name = train_model_name
         self.v_make = v_make
         self.make_obt = make_obt
         self.new_model_path = "trained_models/" + v_make
-        self.data = generate_data(mak=v_make, make=make_obt)
+        if train_model_name == 'make_by_duration.sav':
+            self.features_list = ['Make', 'Months']
+            self.data = generate_duration_data(mak=v_make, make_duration_object=make_obt)
+            
+        elif train_model_name == 'make_by_distance.sav':
+            self.features_list = ['Make', 'Reading']
+            self.data = generate_distance_data(mak=v_make, make=make_obt)
         print("Data target categories")
         print(self.data.groupby('Target').size())
         
@@ -91,7 +137,7 @@ class Classification:
         
     def split(self):
         print('Splitting data...')
-        self.X = np.array(self.data[['Make', 'Reading']])
+        self.X = np.array(self.data[self.features_list])
         self.y = np.array(self.data[['Target']])
         
         # K-fold split
@@ -120,52 +166,70 @@ class Classification:
             
         #     print('------------------------>>>>')
         
-        
-        
     def evaluate(self, show_obs=False, show_warning=True):
         print('Model evaluation...')
-        # np.unique(le.classes_)
         self.predicted = []
         self.actual = []
-        for mk in self.make_obt:
-            print('       ',mk, ' | ',  self.make_obt[mk])
-            print('-------------------')
-            target = self.make_obt[mk]
-            brend_code = self.LabelEncoder.transform([mk])[0]
-            for km in range(1000):
-                res = self.model.predict([[brend_code, km]])[0]
-                self.predicted.append(res)
-                if km % target == 0:
-                    if km > 0:
-                        self.actual.append(1)
-                        if show_obs:
-                            print(km, 'Predicted: {0}| Actual: {1}'.format(res, 1))
-                        
+        
+        if self.train_model_name == 'make_by_distance.sav':
+            test_events = 200
+            for mk in self.make_obt:
+                print('       ',mk, ' | ',  self.make_obt[mk])
+                print('-------------------')
+                target = self.make_obt[mk]
+                brend_code = self.LabelEncoder.transform([mk])[0]
+                for km in range(test_events):
+                    res = self.model.predict([[brend_code, km]])[0]
+                    self.predicted.append(res)
+                    if km % target == 0:
+                        if km > 0:
+                            self.actual.append(1)
+                            if show_obs:
+                                print(km, 'Predicted: {0}| Actual: {1}'.format(res, 1))
+                        else:
+                            self.actual.append(0)
+                            if show_obs:
+                                print(km, 'Predicted: {0}| Actual: {1}'.format(res, 0))
                     else:
                         self.actual.append(0)
                         if show_obs:
-                            print(km, 'Predicted: {0}| Actual: {1}'.format(res, 0))
-                else:
-                    self.actual.append(0)
-                    if show_obs:
-                        print(km,'Predicted: {0}| Actual: {1}'.format(res, 0))
-                        
+                            print(km,'Predicted: {0}| Actual: {1}'.format(res, 0))
+                                        
+        if self.train_model_name == 'make_by_duration.sav':
+            test_events = 1000
+            
+            for mk in self.make_obt:
+                print(mk, '_____',  self.make_obt[mk])
+                target = self.make_obt[mk]
+                brend_code = 0
+                for km in range(1000):
+                    res = self.model.predict([[brend_code, km]])[0]
+                    self.predicted.append(res)
+                    if km >= target:
+                        self.actual.append(1)
+                        # print(km, 'predicted: {0}| Actual: {1}'.format(res, 1))
+                    else:
+                        self.actual.append(0)
+            #             print(km,'predicted: {0}| Actual: {1}'.format(res, 0))
+            
+            
+            
         if self.v_make in ['BIG BOY']:
             self.score = sklearn.metrics.accuracy_score(self.actual, self.predicted)
         else:
             self.score = sklearn.metrics.accuracy_score(self.actual, self.predicted)
-            
+               
         print("Accuracy based on 1k events: {0}%".format(np.round(self.score*100, 2)))
         if (self.score < 0.83)and(show_warning):
             warnings.warn('Accuracy score of {0}%'.format(np.round(self.score*100, 2)))
-        
+
     def save(self):
         global fit_count
         
         if self.score >= 0.83:
             print('Saving fitted model...', end="\r")
             # saving the label_ids in to pickle
-            file = self.new_model_path+'/'+'trainner.sav'
+            file = self.new_model_path+'/'+self.train_model_name
             
             if not os.path.exists(self.new_model_path):
                 os.makedirs(self.new_model_path)
@@ -189,11 +253,11 @@ class Classification:
             
     def load_model(self, model_path, show_accuacy=False):
         # saving the label_ids in to pickle
-        file = str(model_path)+'/'+'trainner.sav'
+        file = str(model_path)+'/'+self.train_model_name
         # with  open(file, 'rb') as f:
-        loaded_model = pickle.load(open(file, 'rb'))
+        self.loaded_model = pickle.load(open(file, 'rb'))
             
         if show_accuacy:
             Classification.evaluate()
-        return loaded_model
+        return self.loaded_model
         

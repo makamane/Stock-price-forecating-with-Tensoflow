@@ -1,37 +1,25 @@
-
+import pickle
 from module import Classification
-# from sklearn.pipeline import Pipeline
-
-PRED_MODELS = {}
 
 
-def trainner():
+def make_trainner(make_distance_train=True):
     print('Loading data...')
-    make = {        
-         'UD TRUCKS':20, 'VOLKSWAGEN':15, 'TOYOTA':15, 'NISSAN':15, 'ISUZU':15, 'BMW':10,
-        'FORD':20, 'AUDI':15, 'RENAULT':15, 'VOLKSWAGEN':15, 'HONDA':15, 'FIAT':10, 'HYUNDAI':15,
-        'ISUZU':15, 'KIA':10, 'CHEVROLET':20, 'MITSUBISHI':15, 'MERCEDES-BENZ':15, 'OPEL':15,
-        'MAZDA':15, 'PORSCHE':15, 'SUZUKI':15, 'TATA':15, 'LAND ROVER':15,' SUBARU':12.5,
-        'DATSUN':15, 'COLT':15, 'IVECO': 15, 'MAN': 20, 'M A N': 20, 'DUCATI': 15, 'YAMAHA':6,
-        'CMC':15, 'BIG BOY': 3
-        }
     
-    # SPECIALITY
-    # UD TRUCKS
-    
-    #-------------------------
-    # MITSUBISHI: 12 month, # KIA : 6 months, # CHEVROLET: 12 month, # DATSUN: 12 months
-    # MERCEDES-BENZ: 12 months, # OPEL : 12 months # MAZDA: 12 month, # SUBARU: 6 months
-    # PORSCHE: 12 months # SUZUKI: 12 months # TATA: 12 months, # LAND ROVER: 12 months
-    # COLT: 12 months # IVECO: 12 months # M A N: 12 months # DUCATI: 12 months
-    # YAMAHA : 6 months # CMC: 12 months, # BIG BOY: 6 months
-    
-    
+    if make_distance_train:
+        with  open('make_by_distance.pickle', 'rb') as file:
+            make = pickle.load(file)
+        model_saves_by = 'make_by_distance.sav'
+        
+    else:
+        with  open('make_by_duration.pickle', 'rb') as file:
+            make = pickle.load(file)
+            model_saves_by = 'make_by_duration.sav'
+        
     for mk in make:
         print('%%%%%%%%%%%%%%%%%%%%%%% START {0} %%%%%%%%%%%%%%%%%%'.format(mk))
         object_ = {}
         object_[mk] = make[mk]
-        model_class = Classification(make_obt = object_, v_make=mk)
+        model_class = Classification(make_obt = object_, v_make=mk, train_model_name=model_saves_by)
         
         # LableEncoder
         _ = model_class.encoder()
@@ -52,35 +40,60 @@ def trainner():
     return model_class
         
 class HomeClass:
-    def __init__(self):
-        self.maint_model_class = trainner()
+    def __init__(self, data):
+        self.v_make_object = data['distance']
+        
+        # saving the make distance data in to pickle
+        with  open("make_by_distance.pickle", 'wb') as f:
+            pickle.dump(data['distance'], f)
+            
+        # saving the make duration data in to pickle
+        with  open("make_by_duration.pickle", 'wb') as f:
+            pickle.dump(data['duration'], f)
+            
+        self.maint_distance_model_class = make_trainner()
+        print('---------------------------------')
+        print("   /|\\")
+        print("  / | \\")
+        print(" /  |  \\")
+        print("/___|___\\")
+        print("\   |   /")
+        print(" \  |  /")
+        print("  \ | /")
+        print("   \|/")
+        print('---------------------------------')
+        self.maint_duration_model_class = make_trainner(make_distance_train=False)
+        
+        
         
     def load(self):
-        pass
-    
-    def predict(self, v_make, odo_reading):
-        global home_class
+        print('Loading models...')
+        self.loaded_models_object = {}
         
-        file_path = "trained_models/"+v_make
-        model = self.maint_model_class.load_model(file_path, show_accuacy=False)
+        for make in self.v_make_object:
+            file_path1 = "trained_models/"+ make +"/make_by_distance.sav"
+            file_path2 = "trained_models/"+ make +"/make_by_duration.sav"
+            
+            self.loaded_models_object[make] = {
+                'distance': pickle.load(open(file_path1, 'rb')),
+                'duration': pickle.load(open(file_path2, 'rb'))
+                }
+        print("|\\        /|    -  _    |-      _____ |")
+        print("| \\      / |   -    -   |  -   |      |")
+        print("|  \\    /  |  -      -  |   -  |      |")
+        print("|   \\  /   | -        - |    - |      |")
+        print("|    \\/    |  -      -  |    - |----- |")
+        print("|          |   -    -   |   -  |      |")
+        print("|          |    -  -    |  -   |      |")
+        print("|          |     -      |-     |_____ |_____s Ready...")
         
-        return model.predict([[0, odo_reading]])[0]
-
+    def predict(self, odo_reading, months, make):
+        model = self.loaded_models_object[make]
+        dis_model_results = int(model['distance'].predict([[0, odo_reading]])[0])
+        dur_model_results = int(model['duration'].predict([[0, months]])[0])
+        
+        if (dis_model_results==0) and (dur_model_results==0):
+            return 0
+        else:
+            return 1
           
-# class TimeSeries:
-#     def __init__(self):
-#         pass # load in new file.....................................
-    
-#     def load(self):
-#         pass
-        
-if __name__ == "__main__":
-    global home_class
-    
-    home_class = HomeClass()
-    
-    print(' ')
-    print('222222222222222222final')
-    results = home_class.predict(v_make='BMW', odo_reading=10)
-    print(results)
-    print('222222222222222222final')
